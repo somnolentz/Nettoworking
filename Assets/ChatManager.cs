@@ -8,7 +8,11 @@ public class ChatManager : MonoBehaviour
 {
     public TMP_InputField messageInput;
     public TextMeshProUGUI chatText;
-    public NetworkManager networkManager;
+
+    private void Start()
+    {
+        NetworkManager.instance.DataRecievedEvent += OnDataRecieved;
+    }
 
     private void Update()
     {
@@ -18,18 +22,19 @@ public class ChatManager : MonoBehaviour
         }
     }
 
+    private void OnDataRecieved(string data)
+    {
+        chatText.text += "\n" + data;
+    }
+
     private void SendMessageToServer(string message)
     {
-        if (networkManager == null)
-        {
-            Debug.LogError("network manager null");
-            return;
-        }
-
-        networkManager.SendData(message);
+      
+        NetworkManager.instance.SendData(message);
 
         chatText.text += "\nYou: " + message;
 
         messageInput.text = ""; 
     }
+
 }
