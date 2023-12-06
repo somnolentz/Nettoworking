@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using UnityEngine;
 using TMPro;
+using NetworkingLibrary;
 
 public class NetworkManager : MonoBehaviour
 {
@@ -16,14 +17,17 @@ public class NetworkManager : MonoBehaviour
     delegate void NetworkTick();
     NetworkTick NetworkTickEvent;
 
-    public delegate void DataRecieved(string data);
-    public DataRecieved DataRecievedEvent;
+    public delegate void RecievedMessage(string message);
+    public RecievedMessage RecievedMessageEvent;
 
     float timer;
     const float totalTicksPerSecond = 24.0f;
     float ms = 1.0f / totalTicksPerSecond;
 
+    public string username;
+
     public static NetworkManager instance;
+ 
 
     private void OnEnable()
     {
@@ -48,12 +52,6 @@ public class NetworkManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
-
-    void Start()
-    {
-       
-    }
-
     void Update()
     {
         if(!connected)
@@ -77,13 +75,14 @@ public class NetworkManager : MonoBehaviour
         ReceiveData();
     }
 
-    public void Connect(string ipadress)
+    public void Connect(string ipadress, string username)
     {
         socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
         try
         {
             socket.Connect(new IPEndPoint(IPAddress.Parse(ipadress), 3000));
+            this.username = username;
             socket.Blocking = false;
             connected = true;
 
@@ -98,13 +97,11 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    public void SendData(string message)
+    public void SendData(byte[] data)
     {
         try
         {
-            byte[] messageBytes = Encoding.ASCII.GetBytes(message);
-            socket.Send(messageBytes);
-            Debug.Log("Sent message: " + message);
+            socket.Send(data);
         }
         catch (SocketException e)
         {
@@ -112,30 +109,39 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
-    public string ReceiveData()
+    public void ReceiveData()
     {
         try
         {
-            if (socket.Available > 0)
+            if(socket.Available > 0)
             {
                 byte[] buffer = new byte[socket.Available];
-                int bytesRead = socket.Receive(buffer);
-                string data = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                if (DataRecievedEvent != null)
+                socket.Receive(buffer);
+                int index = 0;
+                while( index < buffer.Length)
                 {
-                    DataRecievedEvent(data);
-                    Debug.LogError("Received data: " + data);
-                }
+                    BasePacket basepacket = new BasePacket().Deserialize(buffer, index);
+                    switch (basepacket.packetType)
+                    {
+                        case BasePacket.PacketType.Instantiation:
+                            InstantiationPacket instantiationPacket = new InstantiationPacket().Deserialize(buffer, index);
 
-                return data;
+                            GameObject hamper = Resources.Load(instantiationPacket.prefabName) as GameObject;
+                            Instantiate(hamper, instantiationPacket.position, Quaternion.identity);
+                            break;
+
+                        case BasePacket.PacketType.Message:
+                            MessagePacket msgPacket = new MessagePacket().Deserialize(buffer, index);
+                            RecievedMessageEvent.Invoke(msgPacket.Message);
+                            break;
+                    }
+                    index += basepacket.packetSize;
+                }
             }
         }
-        catch (SocketException e)
+        catch (SocketException ex)
         {
-            Debug.LogError("Error receiving data: " + e.Message);
-            return null;
+            Debug.LogException(ex);
         }
-
-        return "";
     }
 }

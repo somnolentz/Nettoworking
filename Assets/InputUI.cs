@@ -8,10 +8,8 @@ using UnityEngine.SceneManagement;
 public class InputUI : MonoBehaviour
 {
     public string ipAdressInput;
-    public TMP_InputField inputField;
+    public TMP_InputField inputField, nameInputField;
     public Button connectButton;
-    // Start is called before the first frame update
-
     private void Awake()
     {
         NetworkManager.instance.ConnectedToServerEvent += LoadIntoGameScene;
@@ -24,15 +22,13 @@ public class InputUI : MonoBehaviour
 
     void Start()
     {
-       
-        connectButton.onClick.AddListener(() => NetworkManager.instance.Connect(inputField.text));
+        nameInputField.text = "Username";
+        inputField.text = "127.0.0.1";
+        connectButton.onClick.AddListener(() => NetworkManager.instance.Connect(inputField.text, nameInputField.text));
     }
 
-    // Update is called once per frame
     void Update()
     {
-
-
     }
 
     void LoadIntoGameScene()
